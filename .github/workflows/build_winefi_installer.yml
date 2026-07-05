@@ -41,12 +41,14 @@ jobs:
     - name: Download Inno Setup
       run: | 
         Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile "is.exe"
-        Start-Process -FilePath "is.exe" -ArgumentList "/SILENT /SUPPRESSMSGBOXES /DIR=\"C:\Program Files (x86)\Inno Setup\"" -Wait
+        $installDir = "C:\InnoSetup"
+        Start-Process -FilePath "is.exe" -ArgumentList "/SILENT /SUPPRESSMSGBOXES /DIR=""$installDir""" -Wait
+        echo "$installDir" | Out-File -FilePath $env:GITHUB_PATH -Append
       shell: powershell
 
-    - name: Add Inno Setup to PATH
-      run: echo "C:\Program Files (x86)\Inno Setup" | Out-File -FilePath $env:GITHUB_PATH -Append
-      shell: powershell
+    - name: Verify Inno Setup
+      run: iscc.exe /?
+      shell: cmd
 
     - name: Compile Inno Setup Installer
       run: iscc.exe WinEFI_Installer.iss
