@@ -20,7 +20,7 @@ SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64
 
 [Languages]
-Name: "english"; MessagesFile: "compiler:Languages\English.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 ; winefi.exe debe ser proporcionado por el usuario, lo marcaremos como no requerido estrictamente para compilar si no existe, o requeriremos que el usuario lo coloque.
