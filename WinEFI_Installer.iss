@@ -140,7 +140,7 @@ var
 begin
   if CurUninstallStep = usUninstall then
   begin
-    if MsgBox(\'Are you sure you want to uninstall WinEFI and restore the original logo?\', mbConfirmation, MB_YESNO) = IDNO then
+    if MsgBox('Are you sure you want to uninstall WinEFI and restore the original logo?', mbConfirmation, MB_YESNO) = IDNO then
     begin
       Abort();
     end;
