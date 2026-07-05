@@ -47,11 +47,11 @@ jobs:
       shell: powershell
 
     - name: Compile Inno Setup Installer
-      run: iscc.exe WinEFI_Installer.iss
+      run: iscc.exe /O"dist" WinEFI_Installer.iss
       shell: cmd
 
     - name: Upload Inno Setup Installer artifact
       uses: actions/upload-artifact@v4
       with:
         name: winefi-installer
-        path: Output\WinEFI_Setup.exe
+        path: dist\WinEFI_Setup.exe
