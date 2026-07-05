@@ -18,9 +18,22 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Setup MSBuild (Visual Studio 2022)
-      uses: microsoft/setup-msbuild@v2 # Actualizado a v2 para mejor soporte de VS 2022
+      uses: microsoft/setup-msbuild@v2
       with:
         vs-version: 'latest'
+
+    - name: Add Roslyn (csc.exe) to PATH
+      run: |
+        $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+        $roslynPath = Get-ChildItem -Path "$vsPath\MSBuild" -Recurse -Filter "csc.exe" | Select-Object -First 1 -ExpandProperty DirectoryName
+        if ($roslynPath) {
+            Write-Host "Found Roslyn at: $roslynPath"
+            echo "$roslynPath" | Out-File -FilePath $env:GITHUB_PATH -Append
+        } else {
+            Write-Error "csc.exe not found"
+            exit 1
+        }
+      shell: powershell
 
     - name: Compile winefi.exe
       run: csc.exe /target:winexe /out:winefi.exe winefi.cs
