@@ -1,0 +1,51 @@
+name: Build WinEFI Installer
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022 # windows-2022 es actualmente el ejecutor con Visual Studio 2022 (la última versión estable)
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup MSBuild (Visual Studio 2022)
+      uses: microsoft/setup-msbuild@v2 # Actualizado a v2 para mejor soporte de VS 2022
+      with:
+        vs-version: 'latest'
+
+    - name: Compile winefi.exe
+      run: csc.exe /target:winexe /out:winefi.exe winefi.cs
+
+    - name: Download Inno Setup
+      run: | 
+        Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile "is.exe"
+        Start-Process -FilePath "is.exe" -ArgumentList "/SILENT /SUPPRESSMSGBOXES /DIR=\"C:\Program Files (x86)\Inno Setup\"" -Wait
+      shell: powershell
+
+    - name: Add Inno Setup to PATH
+      run: echo "C:\Program Files (x86)\Inno Setup" | Out-File -FilePath $env:GITHUB_PATH -Append
+      shell: powershell
+
+    - name: Compile Inno Setup Installer
+      run: iscc.exe WinEFI_Installer.iss
+
+    - name: Upload winefi.exe artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: winefi-executable
+        path: winefi.exe
+
+    - name: Upload Inno Setup Installer artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: winefi-installer
+        path: Output\WinEFI_Setup.exe
