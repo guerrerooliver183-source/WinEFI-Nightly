@@ -46,12 +46,9 @@ jobs:
         echo "$installDir" | Out-File -FilePath $env:GITHUB_PATH -Append
       shell: powershell
 
-    - name: Verify Inno Setup
-      run: iscc.exe /?
-      shell: cmd
-
     - name: Compile Inno Setup Installer
       run: iscc.exe WinEFI_Installer.iss
+      shell: cmd
 
     - name: Upload winefi.exe artifact
       uses: actions/upload-artifact@v4
