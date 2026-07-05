@@ -4,9 +4,18 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using System.Globalization;
+using System.Threading;
 
 public class WinEFI
 {
+    private static void SetEnglishCulture()
+    {
+        CultureInfo enUS = new CultureInfo("en-US");
+        Thread.CurrentThread.CurrentCulture = enUS;
+        Thread.CurrentThread.CurrentUICulture = enUS;
+    }
+
     // Win32 API declarations for resource extraction
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern IntPtr LoadLibraryEx(string lpFileName, IntPtr hReservedNull, uint dwFlags);
@@ -31,6 +40,7 @@ public class WinEFI
 
     public static void Main(string[] args)
     {
+        SetEnglishCulture();
         string installDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "WinEFI");
         string tempDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "WinEFI-Temp");
         string bootresDllPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Boot", "Resources", "bootres.dll");
@@ -47,14 +57,17 @@ public class WinEFI
         string tempBootresDllPath = Path.Combine(tempDir, "bootres.dll");
         try
         {
-            File.Copy(bootresDllPath, tempBootresDllPath, true);
-            Console.WriteLine($"Copied bootres.dll to {tempBootresDllPath}");
+            if (File.Exists(bootresDllPath)) {
+                File.Copy(bootresDllPath, tempBootresDllPath, true);
+                Console.WriteLine($"Copied bootres.dll to {tempBootresDllPath}");
+            } else {
+                Console.WriteLine("Warning: bootres.dll not found at standard path. Skipping extraction.");
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error copying bootres.dll: {ex.Message}");
-            MessageBox.Show($"Error copying bootres.dll: {ex.Message}", "WinEFI Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            return;
+            Console.WriteLine($"Warning: Could not copy bootres.dll: {ex.Message}. Proceeding with manual configuration if available.");
+            // No retornamos aquí para permitir que HackBGRT se instale incluso si la extracción falla
         }
 
         // 2. Extract winlogo3.bmp from the copied bootres.dll

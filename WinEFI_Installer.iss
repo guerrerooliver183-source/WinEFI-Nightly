@@ -13,38 +13,36 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={commonpf32}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 PrivilegesRequired=admin
-OutputDir=userdocs:Inno Setup Examples Output
+OutputDir=dist
 OutputBaseFilename=WinEFI_Setup
 Compression=lzma
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64
 
 [Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl" ; Force English interface for the installer
 
 [Files]
-; winefi.exe debe ser proporcionado por el usuario, lo marcaremos como no requerido estrictamente para compilar si no existe, o requeriremos que el usuario lo coloque.
-; Por ahora asumimos que el usuario lo tiene en la misma carpeta que el script.
 Source: "winefi.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "WinEFI_Startup.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "ExtractBootres.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "WinEFI_Startup.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "ExtractBootres.bat"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
-; Configurar Task Scheduler para que ejecute winefi.exe al iniciar sesión con privilegios más altos (sin UAC)
-Filename: "schtasks.exe"; Parameters: "/create /tn ""WinEFI_AutoStart"" /tr ""'{app}\{#MyAppExeName}'"" /sc onlogon /rl highest /f"; Flags: runhidden
-; Ejecutar PowerShell script para realizar las operaciones de instalación de HackBGRT
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\WinEFI_Startup.ps1"" -Install"; Flags: waituntilterminated runhidden
+; Task Scheduler onlogon task was removed as per user request to avoid startup failures
+; Filename: "schtasks.exe"; Parameters: "/create /tn ""WinEFI_AutoStart"" /tr ""'{app}\{#MyAppExeName}'"" /sc onlogon /rl highest /f"; Flags: runhidden
+; Run Batch script to perform HackBGRT installation operations
+Filename: "{app}\WinEFI_Startup.bat"; Parameters: "-Install"; Flags: waituntilterminated runhidden
 
 [UninstallRun]
-; Borrar la tarea programada
+; Delete the scheduled task if it exists from previous versions
 Filename: "schtasks.exe"; Parameters: "/delete /tn ""WinEFI_AutoStart"" /f"; Flags: runhidden
-; Ejecutar PowerShell script para desinstalar HackBGRT
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\WinEFI_Startup.ps1"" -Uninstall"; Flags: waituntilterminated runhidden
+; Run Batch script to uninstall HackBGRT
+Filename: "{app}\WinEFI_Startup.bat"; Parameters: "-Uninstall"; Flags: waituntilterminated runhidden
 
 [Registry]
-; Asegurar que winefi.exe aparezca en el Administrador de Tareas en la pestaña de Inicio
+; Ensure winefi.exe appears in Task Manager Startup tab
 Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "WinEFI"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue
-; Configurar AppCompatFlags para que siempre se ejecute como administrador (aunque Task Scheduler ya le da privilegios, esto asegura ejecución manual)
+; Set AppCompatFlags to always run as admin
 Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"; ValueType: String; ValueName: "{app}\{#MyAppExeName}"; ValueData: "RUNASADMIN"; Flags: uninsdeletekeyifempty uninsdeletevalue
 
 [Code]
@@ -54,39 +52,13 @@ var
 function OnDownloadProgress(const Url, FileName: String; const Progress, ProgressMax: Int64): Boolean;
 begin
   if Progress = ProgressMax then
-    Log(Format('Successfully downloaded file to {app}: %s', [FileName]));
+    Log(Format('Successfully downloaded file: %s', [FileName]));
   Result := True;
 end;
 
 procedure InitializeWizard;
 begin
   DownloadPage := CreateDownloadPage(SetupMessage(msgWizardPreparing), SetupMessage(msgPreparingDesc), @OnDownloadProgress);
-end;
-
-function NextButtonClick(CurPageID: Integer): Boolean;
-var
-  ResultCode: Integer;
-begin
-  if CurPageID = wpReady then begin
-    DownloadPage.Clear;
-    DownloadPage.Add('https://github.com/Metabolix/HackBGRT/releases/download/v2.6.0/HackBGRT-2.6.0.zip', 'HackBGRT-2.6.0.zip', '');
-    DownloadPage.Show;
-    try
-      try
-        DownloadPage.Download;
-        Result := True;
-      except
-        if DownloadPage.AbortedByUser then
-          Log('Aborted by user.')
-        else
-          SuppressibleMsgBox(AddPeriod(GetExceptionMessage), mbCriticalError, MB_OK, IDOK);
-        Result := False;
-      end;
-    finally
-      DownloadPage.Hide;
-    end;
-  end else
-    Result := True;
 end;
 
 function InitializeSetup(): Boolean;
@@ -107,6 +79,50 @@ begin
   Result := True;
 end;
 
+function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  ZipFile: String;
+  FileHash: String;
+  ExpectedHash: String;
+begin
+  if CurPageID = wpReady then begin
+    ExpectedHash := '6204911d777ac03e514b90126568ef6faa1d477779b31c536b142dba92f4a2c0';
+    ZipFile := ExpandConstant('{tmp}\HackBGRT-2.6.0.zip');
+
+    DownloadPage.Clear;
+    DownloadPage.Add('https://github.com/Metabolix/HackBGRT/releases/download/v2.6.0/HackBGRT-2.6.0.zip', 'HackBGRT-2.6.0.zip', '');
+    DownloadPage.Show;
+    try
+      try
+        DownloadPage.Download;
+        
+        // Verify SHA-256 of the downloaded ZIP file
+        if FileExists(ZipFile) then
+        begin
+          FileHash := GetSHA256OfFile(ZipFile);
+          if CompareStr(Lowercase(FileHash), ExpectedHash) <> 0 then
+          begin
+            MsgBox('Integrity check failed!' + #13#10 + #13#10 + 'The SHA-256 hash of the downloaded HackBGRT.zip does not match the expected value.' + #13#10 + 'Expected: ' + ExpectedHash + #13#10 + 'Found: ' + FileHash, mbError, MB_OK);
+            Result := False;
+            Exit;
+          end;
+        end;
+        
+        Result := True;
+      except
+        if DownloadPage.AbortedByUser then
+          Log('Aborted by user.')
+        else
+          SuppressibleMsgBox(AddPeriod(GetExceptionMessage), mbCriticalError, MB_OK, IDOK);
+        Result := False;
+      end;
+    finally
+      DownloadPage.Hide;
+    end;
+  end else
+    Result := True;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   TempPath: String;
@@ -121,8 +137,8 @@ begin
     // Create Temp Directory
     ForceDirectories(TempPath);
     
-    // Extract Zip using PowerShell
-    Exec('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Expand-Archive -Path ''' + ZipFile + ''' -DestinationPath ''' + TempPath + ''' -Force"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    // Extract Zip using PowerShell via cmd
+    Exec('cmd.exe', '/c powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Expand-Archive -Path ''' + ZipFile + ''' -DestinationPath ''' + TempPath + ''' -Force"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     
     // Move HackBGRT contents to installation directory
     Exec('cmd.exe', '/c xcopy /E /I /Y "' + TempPath + '\HackBGRT-2.6.0\HackBGRT-2.6.0\*" "' + ExpandConstant('{app}') + '\"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
