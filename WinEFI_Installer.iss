@@ -137,11 +137,17 @@ begin
     // Create Temp Directory
     ForceDirectories(TempPath);
     
-    // Extract Zip using PowerShell via cmd
-    Exec('cmd.exe', '/c powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Expand-Archive -Path ''' + ZipFile + ''' -DestinationPath ''' + TempPath + ''' -Force"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    // Extract Zip using PowerShell via cmd with logging attempt
+    if not Exec('cmd.exe', '/c powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Expand-Archive -Path ''' + ZipFile + ''' -DestinationPath ''' + TempPath + ''' -Force"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    begin
+      MsgBox('Error: Failed to extract HackBGRT.zip. Please check your permissions or antivirus.', mbError, MB_OK);
+    end;
     
     // Move HackBGRT contents to installation directory
-    Exec('cmd.exe', '/c xcopy /E /I /Y "' + TempPath + '\HackBGRT-2.6.0\HackBGRT-2.6.0\*" "' + ExpandConstant('{app}') + '\"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    if not Exec('cmd.exe', '/c xcopy /E /I /Y "' + TempPath + '\HackBGRT-2.6.0\HackBGRT-2.6.0\*" "' + ExpandConstant('{app}') + '\"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    begin
+       MsgBox('Error: Failed to copy HackBGRT files to the installation folder.', mbError, MB_OK);
+    end;
   end;
   
   if CurStep = ssPostInstall then

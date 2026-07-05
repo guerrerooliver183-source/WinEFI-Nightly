@@ -38,9 +38,18 @@ public class WinEFI
     const uint LOAD_LIBRARY_AS_DATAFILE = 0x00000002;
     const string RT_RCDATA = "RCDATA"; // Resource type for raw data
 
+    private static void Log(string message)
+    {
+        string logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WinEFI_Debug.log");
+        try {
+            File.AppendAllText(logPath, $"[{DateTime.Now}] {message}{Environment.NewLine}");
+        } catch {}
+    }
+
     public static void Main(string[] args)
     {
         SetEnglishCulture();
+        Log("--- WinEFI Started ---");
         string installDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "WinEFI");
         string tempDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "WinEFI-Temp");
         string bootresDllPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Boot", "Resources", "bootres.dll");
@@ -66,8 +75,8 @@ public class WinEFI
         }
         catch (Exception ex)
         {
+            Log($"Error copying bootres.dll: {ex.Message}");
             Console.WriteLine($"Warning: Could not copy bootres.dll: {ex.Message}. Proceeding with manual configuration if available.");
-            // No retornamos aquí para permitir que HackBGRT se instale incluso si la extracción falla
         }
 
         // 2. Extract winlogo3.bmp from the copied bootres.dll
@@ -108,21 +117,21 @@ public class WinEFI
                             byte[] resourceBytes = new byte[size];
                             Marshal.Copy(pResData, resourceBytes, 0, (int)size);
                             File.WriteAllBytes(winlogo3BmpPath, resourceBytes);
-                            Console.WriteLine($"Extracted winlogo3.bmp to {winlogo3BmpPath}");
+                            Log($"Successfully extracted resource to {winlogo3BmpPath}");
                         }
                         else
                         {
-                            Console.WriteLine("Failed to lock resource or resource size is zero.");
+                            Log("Failed to lock resource or size is zero.");
                         }
                     }
                     else
                     {
-                        Console.WriteLine("Failed to load resource.");
+                        Log("Failed to load resource.");
                     }
                 }
                 else
                 {
-                    Console.WriteLine("Failed to find resource 'winlogo3.bmp' or ID 1.");
+                    Log("Resource 'winlogo3.bmp' or ID 1 not found in DLL.");
                 }
                 FreeLibrary(hModule);
             }
@@ -170,13 +179,14 @@ public class WinEFI
                 startInfo.CreateNoWindow = true;
                 startInfo.WindowStyle = ProcessWindowStyle.Hidden;
 
+                Log("Launching HackBGRT setup.exe...");
                 Process process = Process.Start(startInfo);
                 process.WaitForExit();
-                Console.WriteLine($"HackBGRT reinstallation command executed with exit code {process.ExitCode}");
+                Log($"HackBGRT setup.exe finished with exit code {process.ExitCode}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error reinstalling HackBGRT: {ex.Message}");
+                Log($"Critical error during HackBGRT setup: {ex.Message}");
                 MessageBox.Show($"Error reinstalling HackBGRT: {ex.Message}", "WinEFI Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
