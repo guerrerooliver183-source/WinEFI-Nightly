@@ -20,7 +20,7 @@ SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64
 
 [Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl" ; Force English interface for the installer
+Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 Source: "winefi.exe"; DestDir: "{app}"; Flags: ignoreversion
